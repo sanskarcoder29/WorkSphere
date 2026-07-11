@@ -378,7 +378,10 @@ function AppPage() {
 
   if (!location || isLoadingLocation) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-zinc-50 via-blue-50/30 to-zinc-50 dark:from-black dark:via-blue-950/10 dark:to-black">
+      <div 
+        className="flex items-center justify-center h-screen bg-gradient-to-br from-zinc-50 via-blue-50/30 to-zinc-50 dark:from-black dark:via-blue-950/10 dark:to-black"
+        style={{ backgroundImage: "linear-gradient(135deg, #fafafa 0%, rgba(219, 234, 254, 0.3) 50%, #fafafa 100%)" }}
+      >
         <div className="text-center p-8 max-w-md">
           <div className="relative mx-auto mb-6 w-20 h-20">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 animate-pulse flex items-center justify-center">
