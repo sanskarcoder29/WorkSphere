@@ -18,10 +18,10 @@ jobs:
       CLERK_SECRET_KEY: sk_test_dummy
     steps:
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -75,35 +75,47 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            let commentBody = '## ⚠️ Pull Request Checks Failed\n\nHi @' + context.payload.sender.login + ', thank you for your contribution! Unfortunately, some build or test checks failed. Please see the summary below:\n\n';
-            
-            if (fs.existsSync('install_output.log') && process.env.INSTALL_FAILED === 'true') {
+            let commentBody = '## CI Check Failed\n\nHi @' + context.payload.sender.login + ', thank you for your contribution to **WorkSphere**! Unfortunately, one or more CI checks failed on your PR. Please review the output below and push a fix to your branch.\n\n---\n\n';
+
+            if (process.env.INSTALL_FAILED === 'true' && fs.existsSync('install_output.log')) {
               const log = fs.readFileSync('install_output.log', 'utf8');
-              commentBody += '### 📦 Dependency Installation Failure\n```\n' + log.slice(-1000) + '\n```\n\n';
+              commentBody += '### Dependency Installation Failure\n\n**What failed:** `npm ci` was unable to install packages.\n\n**How to fix:** Run `npm install` locally, commit your updated `package-lock.json`, and push again.\n\n<details><summary>Full log output</summary>\n\n```\n' + log.slice(-2000) + '\n```\n\n</details>\n\n---\n\n';
             }
-            
-            if (fs.existsSync('lint_output.log') && process.env.LINT_FAILED === 'true') {
+
+            if (process.env.LINT_FAILED === 'true' && fs.existsSync('lint_output.log')) {
               const log = fs.readFileSync('lint_output.log', 'utf8');
-              commentBody += '### 🚨 Lint Verification Failure\n```\n' + log.slice(-1000) + '\n```\n\n';
+              commentBody += '### Lint Failure\n\n**What failed:** ESLint found errors or warnings in your code.\n\n**How to fix:** Run `npm run lint` locally to see all issues, then fix them. Common issues include unused variables, missing semicolons, or incorrect imports.\n\n<details><summary>Full lint output</summary>\n\n```\n' + log.slice(-2000) + '\n```\n\n</details>\n\n---\n\n';
             }
-            
-            if (fs.existsSync('build_output.log') && process.env.BUILD_FAILED === 'true') {
+
+            if (process.env.BUILD_FAILED === 'true' && fs.existsSync('build_output.log')) {
               const log = fs.readFileSync('build_output.log', 'utf8');
-              commentBody += '### 🛠️ Production Build & Typecheck Failure\n```\n' + log.slice(-1000) + '\n```\n\n';
+              commentBody += '### Build / TypeScript Failure\n\n**What failed:** The Next.js production build or TypeScript compiler threw errors.\n\n**How to fix:** Run `npm run build` locally to reproduce. Fix any TypeScript type errors or missing module imports shown in the log below.\n\n<details><summary>Full build output</summary>\n\n```\n' + log.slice(-2000) + '\n```\n\n</details>\n\n---\n\n';
             }
-            
-            if (fs.existsSync('test_output.log') && process.env.TEST_FAILED === 'true') {
+
+            if (process.env.TEST_FAILED === 'true' && fs.existsSync('test_output.log')) {
               const log = fs.readFileSync('test_output.log', 'utf8');
-              commentBody += '### 🧪 Unit Tests Failure\n```\n' + log.slice(-1000) + '\n```\n\n';
+              commentBody += '### Unit Test Failure\n\n**What failed:** One or more unit tests did not pass.\n\n**How to fix:** Run `npm test` locally to see which tests are failing and fix the underlying logic.\n\n<details><summary>Full test output</summary>\n\n```\n' + log.slice(-2000) + '\n```\n\n</details>\n\n---\n\n';
             }
-            
-            commentBody += 'Please fix these issues and push updates to your branch. Once all checks pass, your PR can be merged!';
-            
+
+            commentBody += '_Once all issues are resolved and your checks are green, a maintainer will review and merge your PR. Thank you for your patience!_';
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.pull_request.number,
               body: commentBody
+            });
+
+      - name: Post Success Comment on PR
+        if: success() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: '## All CI Checks Passed\n\nGreat work @' + context.payload.sender.login + '! All checks passed:\n\n- Dependency installation\n- ESLint code quality\n- Next.js production build\n- TypeScript type checking\n- Unit tests\n\nYour PR is ready for maintainer review. A maintainer will look at it shortly!'
             });
 
   auto-approve:
@@ -112,9 +124,9 @@ jobs:
     if: github.event_name == 'pull_request'
     permissions:
       pull-requests: write
+    continue-on-error: true
     steps:
       - name: Auto Approve PR
         uses: hmarr/auto-approve-action@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
