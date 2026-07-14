@@ -225,9 +225,9 @@ const Map = ({
   // =========================================================================
   const [routingQueue, setRoutingQueue] = useState<any[]>([]);
   const [optimizedRoute, setOptimizedRoute] = useState<any>(null);
-  const [travelProfile, setTravelProfile] = useState<"walking" | "cycling" | "driving">(
-    "walking",
-  );
+  const [travelProfile, setTravelProfile] = useState<
+    "walking" | "cycling" | "driving"
+  >("walking");
 
   // OSRM Multi-Stop coordinate solver engine
   const calculateOptimizedRoute = async (venuesList = routingQueue) => {
