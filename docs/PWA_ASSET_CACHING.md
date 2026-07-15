@@ -4,59 +4,86 @@ This document outlines the service worker caching strategies used in the WorkSph
 
 ---
 
-## 1. Cache-First Strategy (Static Assets)
+## 1. Cache-First Strategy (External Mapping & Image Assets)
 
-**Target:** Local icons, fonts, UI images, and static global stylesheets.
-**Reasoning:** These assets rarely change. Serving them directly from the cache immediately improves initial load times, saves bandwidth, and ensures the UI structure remains intact offline.
+**Target:** External map tiles (e.g., `tile.openstreetmap.org`) and image/font assets.
+**Reasoning:** These external map tiles and static assets rarely change. Serving them directly from the cache immediately improves initial load times, saves bandwidth, and ensures the UI structure and maps remain intact offline.
 
 **Service Worker Implementation Pattern:**
-The service worker intercepts the request, checks the asset registry cache first, and only falls back to the network if the asset is missing.
+The service worker intercepts the request, checks the cache first. If missing, it fetches from the network and saves the successful response into the cache for future offline use.
 
 ```javascript
-// Example: Cache-First for static assets
+// Example: Cache-First for external mapping tiles and images
 self.addEventListener("fetch", (event) => {
-  const isStaticAsset =
+  const isExternalMapTile = event.request.url.includes(
+    "tile.openstreetmap.org",
+  );
+  const isImageAsset =
     event.request.destination === "image" ||
     event.request.destination === "font";
 
-  if (isStaticAsset) {
+  if (isExternalMapTile || isImageAsset) {
     event.respondWith(
       caches.match(event.request).then((cachedResponse) => {
-        return cachedResponse || fetch(event.request);
+        // Return from cache if available
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Otherwise fetch from network and cache the response
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.ok) {
+            const responseToCache = networkResponse.clone();
+            caches.open("static-asset-cache").then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        });
       }),
     );
   }
 });
 ```
 
-## 2. Network-First Strategy (Dynamic Content & Mapping Tiles)
+## 2. Network-First Strategy (Local Requests & API Endpoints)
 
-**Target:** Mapping tiles, API endpoints, and user-specific dynamic data.
-**Reasoning:** This data updates frequently or is location-dependent. We must always attempt to show the user the most up-to-date information, falling back to the cached versions only if the network request fails (e.g., when the user loses signal).
+**Target:** Local requests, HTML navigations, and dynamic API endpoints (e.g., `/api/venues`).
+**Reasoning:** This local data updates frequently. We must always attempt to show the user the most up-to-date information directly from the server, falling back to the cached versions only if the network fails.
 
 **Service Worker Implementation Pattern:**
-The service worker attempts to fetch from the network first. If successful, it updates the cache. If the network fails, it intercepts the failure and returns the last known good state from the cache.
+The service worker attempts to fetch from the network first. If successful, it updates the cache. If the network fails, it returns the last known good state from the cache, or returns a safe 503 fallback response if the cache is empty.
 
 ```javascript
-// Example: Network-First for mapping tiles and API requests
+// Example: Network-First for local requests and API endpoints
 self.addEventListener("fetch", (event) => {
-  const isDynamicContent =
-    event.request.url.includes("/api/") ||
-    event.request.url.includes("/tiles/");
+  const isLocalApi =
+    event.request.url.includes("/api/") || event.request.mode === "navigate";
 
-  if (isDynamicContent) {
+  if (isLocalApi) {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          // Clone the response before caching it
-          return caches.open("dynamic-content-cache").then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
+          // Clone and cache only successful responses
+          if (networkResponse && networkResponse.ok) {
+            const responseToCache = networkResponse.clone();
+            caches.open("dynamic-content-cache").then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
         })
         .catch(() => {
-          // Network failed, fallback to cache
-          return caches.match(event.request);
+          // Network failed, fallback to cache safely
+          return caches.match(event.request).then((cachedResponse) => {
+            return (
+              cachedResponse ||
+              new Response("Offline: Resource not cached.", {
+                status: 503,
+                statusText: "Service Unavailable",
+              })
+            );
+          });
         }),
     );
   }
