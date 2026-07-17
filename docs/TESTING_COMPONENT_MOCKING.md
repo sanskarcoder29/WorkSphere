@@ -37,30 +37,34 @@ WorkSphere uses Clerk for user authentication. When testing authenticated compon
 
 ### Mocking Clerk Hooks and Components
 
-Use this boilerplate to simulate an authenticated session. You can adjust `isSignedIn` to `false` when testing public routes.
+Use this boilerplate to simulate an authenticated session. You can toggle the `mockIsSignedIn` variable to test authenticated versus public routes, and the `SignedIn` and `SignedOut` components will render accordingly.
 
 ```javascript
+const mockIsSignedIn = true; // Toggle to false to test public routes
+
 jest.mock("@clerk/nextjs", () => ({
   ...jest.requireActual("@clerk/nextjs"),
   useUser: () => ({
     isLoaded: true,
-    isSignedIn: true,
-    user: {
-      id: "user_mock_123",
-      fullName: "Test User",
-      primaryEmailAddress: { emailAddress: "test@worksphere.com" },
-    },
+    isSignedIn: mockIsSignedIn,
+    user: mockIsSignedIn
+      ? {
+          id: "user_mock_123",
+          fullName: "Test User",
+          primaryEmailAddress: { emailAddress: "test@worksphere.com" },
+        }
+      : null,
   }),
   useAuth: () => ({
     isLoaded: true,
-    isSignedIn: true,
-    userId: "user_mock_123",
-    sessionId: "session_mock_123",
+    isSignedIn: mockIsSignedIn,
+    userId: mockIsSignedIn ? "user_mock_123" : null,
+    sessionId: mockIsSignedIn ? "session_mock_123" : null,
   }),
-  // Mock standard Clerk wrapper components as simple pass-throughs
+  // Mock standard Clerk wrapper components to respect auth state
   ClerkProvider: ({ children }) => <div>{children}</div>,
-  SignedIn: ({ children }) => <div>{children}</div>,
-  SignedOut: ({ children }) => null,
+  SignedIn: ({ children }) => (mockIsSignedIn ? <div>{children}</div> : null),
+  SignedOut: ({ children }) => (!mockIsSignedIn ? <div>{children}</div> : null),
 }));
 ```
 
@@ -72,7 +76,7 @@ For complex components requiring Context providers (such as Auth, Theme, or Stat
 
 ### Boilerplate Wrapper Setup (`test-utils.js`)
 
-Create or update your utility testing file with the following pattern:
+Create or update your utility testing file with the following pattern. Note the `publishableKey` is provided to prevent render errors if the real `ClerkProvider` is imported instead of the mock:
 
 ```javascript
 import React from "react";
@@ -82,7 +86,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 
 const AllTheProviders = ({ children }) => {
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey="test_publishable_key">
       {/* Add other global providers here */}
       {children}
     </ClerkProvider>
