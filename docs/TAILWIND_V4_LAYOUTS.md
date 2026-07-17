@@ -143,12 +143,12 @@ Tailwind v4 uses `color-mix()` internally for opacity modifiers (e.g., `bg-blue-
 ### Transition Classes
 
 - Apply standard v4 transition classes (`transition-all ease-in-out duration-300`) for smooth UI interactions.
-- Rely on the default CSS variable transitions provided by the Lightning CSS engine rather than hardcoding cubic-bezier curves in JS.
+- Rely on the default CSS variable transitions provided by Tailwind (e.g., `--default-transition-timing-function` and `--default-transition-duration`) rather than hardcoding cubic-bezier curves in JS.
 
 ### Flex Configurations
 
 - Standard flexbox layouts should avoid arbitrary gap values.
-- Stick to predefined variables (like `--grid-gap`) and native utility classes (`gap-4`, `gap-6`) to ensure flex children scale proportionally across viewports.
+- Stick to predefined variables (like `--grid-gap`) and responsive native utility classes (like `gap-4 md:gap-6`) to ensure flex children scale proportionally across viewports.
 
 ### Theme Selector State Overrides
 
