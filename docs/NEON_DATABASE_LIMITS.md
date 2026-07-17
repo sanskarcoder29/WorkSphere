@@ -15,11 +15,11 @@ Neon provides two types of connection strings. For serverless environments, **yo
 
 ### Identifying a Pooled Connection String
 
-A pooled connection string includes `-pooler` in the endpoint URL and must include the `?pgbouncer=true` parameter for Prisma to understand it.
+A pooled connection string is identified by the `-pooler` suffix in the endpoint URL. (Note: The `?pgbouncer=true` parameter is generally only required for older PgBouncer setups and can be omitted for modern Neon pools).
 
 ```env
 # ✅ DO THIS (Pooled)
-DATABASE_URL="postgresql://user:password@ep-cool-snowflake-123456-pooler.us-east-2.aws.neon.tech/worksphere?pgbouncer=true"
+DATABASE_URL="postgresql://user:password@ep-cool-snowflake-123456-pooler.us-east-2.aws.neon.tech/worksphere"
 
 # ❌ DO NOT DO THIS (Direct)
 DATABASE_URL="postgresql://user:password@ep-cool-snowflake-123456.us-east-2.aws.neon.tech/worksphere"
@@ -35,7 +35,7 @@ Even with Neon's PgBouncer handling connections on the database side, Prisma nee
 
 By default, Prisma calculates the connection pool size based on `(num_physical_cpus * 2) + 1`. In a serverless environment, this is often too high because each function instance will create its own pool.
 
-- **Standard Serverless Configuration:** Add `&connection_limit=5` (or up to `10`) to the end of your connection string.
+- **Standard Serverless Configuration:** Add `&connection_limit=1` to the end of your connection string. This ensures that warm instances do not multiply and exhaust the global connection pool.
 
 ### `pool_timeout`
 
@@ -48,13 +48,13 @@ This parameter determines how long Prisma will wait for a new connection from th
 Your final `DATABASE_URL` in your `.env` file should look like this:
 
 ```env
-DATABASE_URL="postgresql://user:password@ep-cool-snowflake-123456-pooler.us-east-2.aws.neon.tech/worksphere?pgbouncer=true&connection_limit=5&pool_timeout=15"
+DATABASE_URL="postgresql://user:password@ep-cool-snowflake-123456-pooler.us-east-2.aws.neon.tech/worksphere?connection_limit=1&pool_timeout=15"
 ```
 
 ---
 
 ## 3. Best Practices for Neon Serverless Scaling
 
-1. **Avoid Global Prisma Clients in Development:** Next.js hot module reloading (HMR) can drain database connections. Always ensure your `prisma.ts` or `db.ts` file uses a `globalThis` check to prevent instantiating multiple Prisma clients in development.
+1. **Use a Singleton Prisma Client in Development:** Next.js hot module reloading (HMR) can drain database connections. Always reuse a single `globalThis`-cached Prisma client in your `prisma.ts` or `db.ts` file to survive HMR and prevent instantiating multiple clients.
 2. **Handle Cold Starts:** Serverless platforms can have cold starts. Setting a reasonable `pool_timeout` allows the application to wait for the database connection rather than immediately crashing.
 3. **Monitor Neon Dashboard:** Keep an eye on the "Active Connections" metric in your Neon dashboard to ensure your `connection_limit` across all active serverless functions is not exceeding the tier limit.
