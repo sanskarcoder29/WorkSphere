@@ -27,7 +27,7 @@ import { trackVenueInteraction } from "@/lib/analytics";
 import { MessageRenderer } from "./GenerativeUI";
 import { AddToFolderModal } from "@/components/collections/AddToFolderModal";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ComparisonDrawer } from "@/components/ComparisonDrawer"; // Added this import
+import { ComparisonDrawer } from "@/components/ComparisonDrawer";
 import { ChatMessageSkeleton } from "@/components/ui/skeleton";
 
 // ─── Shared types (re-declared so sub-components are self-contained) ──────────
@@ -203,7 +203,6 @@ export function VenueChatCard({
           data-index={dataIndex}
           className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 bg-white dark:bg-zinc-900 hover:shadow-md hover:scale-[1.01] transition-all cursor-pointer shadow-sm my-1 active:scale-[0.99] flex items-center gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
         >
-          {/* Photo thumbnail */}
           {photoLoading ? (
             <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 animate-pulse rounded-lg shrink-0" />
           ) : (
@@ -220,7 +219,6 @@ export function VenueChatCard({
             </div>
           )}
 
-          {/* Content Area */}
           <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <div className="flex items-center gap-1.5">
@@ -241,7 +239,6 @@ export function VenueChatCard({
               )}
             </div>
 
-            {/* Details (wifi, outlets) horizontally */}
             <div className="flex items-center gap-2 shrink-0">
               {venue.wifi && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20">
@@ -270,12 +267,10 @@ export function VenueChatCard({
             </div>
           </div>
 
-          {/* Mini Actions */}
           <div
             className="flex items-center gap-1.5 shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Compare Checkbox (List View) */}
             {onToggleCompare && (
               <label
                 className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border transition-all ${
@@ -346,7 +341,6 @@ export function VenueChatCard({
         data-index={dataIndex}
         className="relative border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden bg-white dark:bg-zinc-900 hover:shadow-2xl hover:scale-[1.02] transition-all cursor-pointer shadow-lg my-2 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500"
       >
-        {/* Venue photo */}
         {photoLoading ? (
           <div className="w-full h-44 bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
         ) : (
@@ -362,13 +356,11 @@ export function VenueChatCard({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
 
-            {/* Category Tag */}
             <span className="absolute bottom-3 left-3 flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-black px-2 py-1 rounded-md bg-zinc-950 border border-zinc-700 text-white">
               <CategoryIcon className="w-3 h-3" />
               {venue.category?.replace("_", " ")}
             </span>
 
-            {/* Compare Checkbox (Card View Overlay) */}
             {onToggleCompare && (
               <div
                 className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-white/90 dark:bg-black/80 px-2.5 py-1.5 rounded-lg shadow-md backdrop-blur-md"
@@ -422,7 +414,6 @@ export function VenueChatCard({
                 </p>
               )}
 
-              {/* Amenity badges */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 {venue.wifi && (
                   <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-500/10 border border-green-500/20">
@@ -450,7 +441,6 @@ export function VenueChatCard({
                 )}
               </div>
 
-              {/* Action buttons */}
               <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
@@ -571,6 +561,7 @@ interface VenueListingsProps {
   onRateVenue: (venue: Venue) => void;
   onOpenDetails: (venue: Venue) => void;
   onBook: (venue: Venue) => void;
+  onLoadMore?: () => Promise<void>;
 }
 
 export function VenueListings({
@@ -581,11 +572,11 @@ export function VenueListings({
   onRateVenue,
   onOpenDetails,
   onBook,
+  onLoadMore,
 }: VenueListingsProps) {
   const [viewMode, setViewMode] = useState<"card" | "list">("card");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // State to track venues selected for comparison
   const [selectedVenues, setSelectedVenues] = useState<Venue[]>([]);
 
   // INFINITE SCROLL STATES
@@ -593,20 +584,32 @@ export function VenueListings({
   const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
 
+  // FIX 1: Reset pagination state when a new search result set arrives
   useEffect(() => {
+    setVisibleCount(5);
+    setIsFetchingNextPage(false);
+  }, [venues]);
+
+  // FIX 2 & 3: Clean up timer and support explicit pagination callback
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const observer = new IntersectionObserver(
       (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          visibleCount < venues.length &&
-          !isFetchingNextPage
-        ) {
-          setIsFetchingNextPage(true);
-          // Simulate fetch delay for smooth UI transition
-          setTimeout(() => {
-            setVisibleCount((prev) => prev + 5);
-            setIsFetchingNextPage(false);
-          }, 800);
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          // If we have more venues locally, mock the pagination load
+          if (visibleCount < venues.length) {
+            setIsFetchingNextPage(true);
+            timeoutId = setTimeout(() => {
+              setVisibleCount((prev) => Math.min(prev + 5, venues.length));
+              setIsFetchingNextPage(false);
+            }, 800);
+          }
+          // If we hit the end of the local array and have an API callback, fetch real data
+          else if (onLoadMore) {
+            setIsFetchingNextPage(true);
+            onLoadMore().finally(() => setIsFetchingNextPage(false));
+          }
         }
       },
       { threshold: 0.1 },
@@ -616,8 +619,11 @@ export function VenueListings({
       observer.observe(observerTarget.current);
     }
 
-    return () => observer.disconnect();
-  }, [visibleCount, venues.length, isFetchingNextPage]);
+    return () => {
+      observer.disconnect();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [visibleCount, venues.length, isFetchingNextPage, onLoadMore]);
 
   const handleToggleCompare = (venue: Venue) => {
     setSelectedVenues((prev) => {
@@ -719,7 +725,7 @@ export function VenueListings({
           ))}
 
           {/* Infinite Scroll Sentinel */}
-          {visibleCount < venues.length && (
+          {(visibleCount < venues.length || onLoadMore) && (
             <div ref={observerTarget} className="py-4 flex justify-center">
               {isFetchingNextPage && (
                 <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
@@ -777,7 +783,6 @@ export function MessageList({
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll logic to handle rapid streaming chunks and code block heights
   useEffect(() => {
     const container = containerRef.current;
     if (container) {
