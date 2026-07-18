@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { X, MapPin, Loader2 } from "lucide-react";
 
@@ -75,6 +75,15 @@ export function VenueSubmissionModal({
     patioOnly: false,
     waterBowlsProvided: false,
   });
+
+  // Cleanup memory leak when component unmounts or imagePreview changes
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +199,7 @@ export function VenueSubmissionModal({
           waterBowlsProvided: false,
         });
         setFile(null);
+        if (imagePreview) URL.revokeObjectURL(imagePreview);
         setImagePreview(null);
         setUploadStatus("");
       }, 2000);
@@ -205,17 +215,31 @@ export function VenueSubmissionModal({
   const processFile = (selected: File) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
 
+    const clearState = () => {
+      setFile(null);
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+      setImagePreview(null);
+      if (inputRef.current) inputRef.current.value = "";
+    };
+
     if (!allowedTypes.includes(selected.type)) {
       setError("Invalid file type. Please upload a JPEG, PNG, or WEBP.");
+      clearState();
       return;
     }
 
     if (selected.size > 5 * 1024 * 1024) {
       setError("Image must be smaller than 5MB");
+      clearState();
       return;
     }
 
     setError(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setFile(selected);
     setImagePreview(URL.createObjectURL(selected));
   };
@@ -441,6 +465,9 @@ export function VenueSubmissionModal({
                     onClick={(e) => {
                       e.stopPropagation();
                       setFile(null);
+                      if (imagePreview) {
+                        URL.revokeObjectURL(imagePreview);
+                      }
                       setImagePreview(null);
                       if (inputRef.current) inputRef.current.value = "";
                     }}
