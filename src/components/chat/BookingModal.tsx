@@ -91,10 +91,13 @@ export function BookingModal({
   // CELEBRATORY CONFETTI SUCCESS TRIGGER OVERLAY
   // =========================================================================
   useEffect(() => {
+    let animationFrameId: number;
+
     if (step === "success") {
       const respectsReducedMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
+
       if (respectsReducedMotion) return;
 
       const duration = 3 * 1000;
@@ -117,12 +120,19 @@ export function BookingModal({
         });
 
         if (Date.now() < end) {
-          requestAnimationFrame(frame);
+          animationFrameId = requestAnimationFrame(frame);
         }
       };
 
       frame();
     }
+
+    // Cleanup function to cancel the animation loop when unmounting or leaving success step
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
   }, [step]);
 
   const getFilteredHistory = () => {
@@ -384,7 +394,7 @@ export function BookingModal({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close venue details"
+            aria-label="Close dialog"
             className="p-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-2xl transition-all active:scale-90"
           >
             <X className="w-6 h-6" />
@@ -715,7 +725,7 @@ export function BookingModal({
               <button
                 onClick={() => setStep("payment")}
                 disabled={!bookingDate || !bookingTime || !email}
-                className="w-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-955 font-black uppercase tracking-widest py-5 rounded-[1.5rem] flex items-center justify-center gap-3 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-2xl shadow-zinc-900/10"
+                className="w-full bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-950 font-black uppercase tracking-widest py-5 rounded-[1.5rem] flex items-center justify-center gap-3 hover:scale-[1.02] transition-all active:scale-95 disabled:opacity-50 disabled:hover:scale-100 shadow-2xl shadow-zinc-900/10"
               >
                 Continue to Security Check
                 <ArrowRight className="w-5 h-5" />
