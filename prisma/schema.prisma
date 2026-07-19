@@ -66,6 +66,7 @@ model Venue {
   hasPhoneBooths     Boolean             @default(false)
   hasNoMusic         Boolean             @default(false)
   hasQuietZone       Boolean             @default(false)
+  hasAncHeadsetRental Boolean             @default(false)
   petsAllowedIndoors Boolean             @default(false)
   patioOnly          Boolean             @default(false)
   waterBowlsProvided Boolean             @default(false)
