@@ -13,15 +13,15 @@ This specification details the WebAuthn (FIDO2) integration for WorkSphere. It c
 1. **Initiation:** The client requests passkey registration.
 2. **Challenge Generation:** The server generates a cryptographic challenge and user identity payload, returning `PublicKeyCredentialCreationOptions`.
 3. **Authenticator Interaction:** The browser prompts the user for user verification (e.g., FaceID, TouchID, or device PIN). The authenticator generates a new keypair.
-4. **Attestation:** The client sends the public key, signature, and challenge back to the server.
-5. **Storage:** The server verifies the attestation and securely stores the `credentialID` and `publicKey` mapped to the user.
+4. **Attestation:** The client returns the `attestationObject` and `clientDataJSON` to the server.
+5. **Storage:** The server validates the `clientDataJSON` and `authenticatorData`, verifies the attestation, and securely stores the `credentialID` and `publicKey` mapped to the user.
 
 ### Authentication Flow (Login)
 
 1. **Initiation:** The client inputs their identifier (or uses discoverable credentials) to log in.
 2. **Challenge Generation:** The server generates a new challenge, returning `PublicKeyCredentialRequestOptions`.
-3. **Assertion:** The user authenticates via device user verification. The authenticator signs the challenge using the stored private key.
-4. **Verification:** The client sends the assertion to the server. The server verifies the signature against the stored `publicKey` and grants a session token.
+3. **Assertion:** The user authenticates via device user verification. The authenticator signs the payload, where the signed data is `authenticatorData || SHA-256(clientDataJSON)`.
+4. **Verification:** The client sends the assertion to the server. The server validates the `clientDataJSON` and `authenticatorData`, verifies the signature against the stored `publicKey`, and grants a session token.
 
 ## 2. Challenge Creation Rules
 
@@ -41,7 +41,7 @@ To allow users to register a passkey on `app.worksphere.com` and use it to log i
 
 ### Origin & RP ID Policy Enforcement
 
-The following helper strictly enforces the origin and RP ID policy as a preliminary step in the broader WebAuthn verification pipeline. Note: This implementation explicitly trusts the root domain and all subdomains of `worksphere.com` to match the application's configuration.
+The following helper strictly enforces the origin and RP ID policy as a preliminary step in the broader WebAuthn verification pipeline. Note: This implementation explicitly trusts the root domain and all HTTPS subdomains of `worksphere.com` to match the application's configuration.
 
 ```typescript
 /**
@@ -55,13 +55,27 @@ function validateWebAuthnOriginPolicy(
   clientOrigin: string,
   rpId: string,
 ): boolean {
-  // 1. Validate Origin (trusts root and all subdomains safely)
-  const isAllowedOrigin =
-    clientOrigin === "[https://worksphere.com](https://worksphere.com)" ||
-    clientOrigin.endsWith(".worksphere.com");
+  // 1. Validate Origin (Parse URL to enforce HTTPS and valid hostnames)
+  try {
+    const originUrl = new URL(clientOrigin);
 
-  if (!isAllowedOrigin) {
-    throw new Error(`WebAuthn Error: Untrusted origin ${clientOrigin}`);
+    if (originUrl.protocol !== "https:") {
+      throw new Error(
+        `WebAuthn Error: Insecure protocol ${originUrl.protocol}`,
+      );
+    }
+
+    const isAllowedHost =
+      originUrl.hostname === "worksphere.com" ||
+      originUrl.hostname.endsWith(".worksphere.com");
+
+    if (!isAllowedHost) {
+      throw new Error(
+        `WebAuthn Error: Untrusted origin hostname ${originUrl.hostname}`,
+      );
+    }
+  } catch (e) {
+    throw new Error(`WebAuthn Error: Invalid origin format ${clientOrigin}`);
   }
 
   // 2. Validate RP ID (ensures the credential belongs to our top-level domain)
