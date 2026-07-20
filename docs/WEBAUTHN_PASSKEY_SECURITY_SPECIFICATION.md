@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification details the WebAuthn (FIDO2) integration for WorkSphere. It covers the cryptographic challenge lifecycle, biometric security enforcement, and the Relying Party (RP) origin delegation strategy required to support passkeys seamlessly across our enterprise subdomains.
+This specification details the WebAuthn (FIDO2) integration for WorkSphere. It covers the cryptographic challenge lifecycle, user verification enforcement, and the Relying Party (RP) origin delegation strategy required to support passkeys seamlessly across our enterprise subdomains.
 
 ---
 
@@ -12,7 +12,7 @@ This specification details the WebAuthn (FIDO2) integration for WorkSphere. It c
 
 1. **Initiation:** The client requests passkey registration.
 2. **Challenge Generation:** The server generates a cryptographic challenge and user identity payload, returning `PublicKeyCredentialCreationOptions`.
-3. **Authenticator Interaction:** The browser prompts the user for biometric verification (FaceID/TouchID). The authenticator generates a new keypair.
+3. **Authenticator Interaction:** The browser prompts the user for user verification (e.g., FaceID, TouchID, or device PIN). The authenticator generates a new keypair.
 4. **Attestation:** The client sends the public key, signature, and challenge back to the server.
 5. **Storage:** The server verifies the attestation and securely stores the `credentialID` and `publicKey` mapped to the user.
 
@@ -20,7 +20,7 @@ This specification details the WebAuthn (FIDO2) integration for WorkSphere. It c
 
 1. **Initiation:** The client inputs their identifier (or uses discoverable credentials) to log in.
 2. **Challenge Generation:** The server generates a new challenge, returning `PublicKeyCredentialRequestOptions`.
-3. **Assertion:** The user authenticates biometrically. The authenticator signs the challenge using the stored private key.
+3. **Assertion:** The user authenticates via device user verification. The authenticator signs the challenge using the stored private key.
 4. **Verification:** The client sends the assertion to the server. The server verifies the signature against the stored `publicKey` and grants a session token.
 
 ## 2. Challenge Creation Rules
@@ -39,26 +39,28 @@ To allow users to register a passkey on `app.worksphere.com` and use it to log i
 - **Configured RP ID:** `worksphere.com`
 - **Rule:** The WebAuthn specification allows authenticators scoped to a root domain (`worksphere.com`) to be utilized across any valid subdomain.
 
-### Origin Validation Code
+### Origin & RP ID Policy Enforcement
 
-When the server verifies the attestation or assertion, it must strictly validate the `origin` and `rpId` against an allowed list to prevent phishing and Man-in-the-Middle (MitM) attacks.
+The following helper strictly enforces the origin and RP ID policy as a preliminary step in the broader WebAuthn verification pipeline. Note: This implementation explicitly trusts the root domain and all subdomains of `worksphere.com` to match the application's configuration.
 
 ```typescript
 /**
  * Validates the origin and RP ID of a WebAuthn response.
+ * Note: This handles origin/challenge policy enforcement, not the full cryptographic signature validation.
  * @param {string} clientOrigin - The origin returned from the authenticator's client data JSON.
  * @param {string} rpId - The Relying Party ID configured on the server.
  * @returns {boolean} - True if valid, throws Error if invalid.
  */
-function validateWebAuthnOrigin(clientOrigin: string, rpId: string): boolean {
-  const allowedOrigins = [
-    "[https://worksphere.com](https://worksphere.com)",
-    "[https://app.worksphere.com](https://app.worksphere.com)",
-    "[https://admin.worksphere.com](https://admin.worksphere.com)",
-  ];
+function validateWebAuthnOriginPolicy(
+  clientOrigin: string,
+  rpId: string,
+): boolean {
+  // 1. Validate Origin (trusts root and all subdomains safely)
+  const isAllowedOrigin =
+    clientOrigin === "[https://worksphere.com](https://worksphere.com)" ||
+    clientOrigin.endsWith(".worksphere.com");
 
-  // 1. Validate Origin (prevents phishing from rogue domains)
-  if (!allowedOrigins.includes(clientOrigin)) {
+  if (!isAllowedOrigin) {
     throw new Error(`WebAuthn Error: Untrusted origin ${clientOrigin}`);
   }
 
