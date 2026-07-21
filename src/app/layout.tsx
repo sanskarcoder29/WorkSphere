@@ -11,21 +11,26 @@ import { SoundProvider } from "../components/SoundProvider";
 import { ScrollProgress } from "../components/ui/ScrollProgress";
 import { CookieBanner } from "../components/CookieBanner";
 import { CurrencyProvider } from "@/context/CurrencyContext";
+import { SyncManager } from "../hooks/usePWA";
 
 const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem("worksphere-theme");
-    var theme =
-      stored === "light" || stored === "dark"
-        ? stored
-        : window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light";
+    var theme = stored === "light" || stored === "dark" || stored === "cyberpunk"
+      ? stored
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 
     var root = document.documentElement;
-    root.classList.toggle("dark", theme === "dark");
-    root.style.colorScheme = theme;
+    root.classList.remove("dark", "cyberpunk");
+
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else if (theme === "cyberpunk") {
+      root.classList.add("cyberpunk");
+    }
+
+    root.style.colorScheme = theme === "light" ? "light" : "dark";
 
     if (document.cookie.indexOf("worksphere-theme=") === -1) {
       document.cookie =
@@ -33,7 +38,7 @@ const THEME_INIT_SCRIPT = `
         theme +
         "; path=/; max-age=31536000; SameSite=Lax";
     }
-  } catch {}
+  } catch (e) {}
 
   try {
     var accentStored = localStorage.getItem("worksphere-accent");
@@ -122,8 +127,12 @@ export default async function RootLayout({
 
   const cookieStore = await cookies();
   const storedTheme = cookieStore.get("worksphere-theme")?.value;
-  const theme: "light" | "dark" =
-    storedTheme === "dark" || storedTheme === "light" ? storedTheme : "light";
+  const theme: "light" | "dark" | "cyberpunk" =
+    storedTheme === "dark" ||
+    storedTheme === "light" ||
+    storedTheme === "cyberpunk"
+      ? (storedTheme as any)
+      : "light";
 
   const storedAccent = cookieStore.get("worksphere-accent")?.value;
   const accent: "blue" | "purple" | "emerald" | "amber" =
@@ -135,12 +144,13 @@ export default async function RootLayout({
       : "blue";
 
   const appContent = (
-    <ThemeProvider initialTheme={theme} initialAccent={accent}>
+    <ThemeProvider initialTheme={theme as any} initialAccent={accent}>
       <SoundProvider>
         <CurrencyProvider>
           <I18nProvider>{children}</I18nProvider>
         </CurrencyProvider>
       </SoundProvider>
+      <SyncManager />
     </ThemeProvider>
   );
 
@@ -165,7 +175,9 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={theme === "dark" ? "dark" : ""}
+      className={
+        theme === "dark" ? "dark" : theme === "cyberpunk" ? "cyberpunk" : ""
+      }
       suppressHydrationWarning
     >
       <head>

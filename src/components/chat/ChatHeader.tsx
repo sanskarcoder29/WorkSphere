@@ -31,6 +31,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "../ThemeToggle";
 import { EmptyState } from "../ui/EmptyState";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface Conversation {
   id: string;
@@ -111,6 +112,8 @@ export function ChatHeader({
   const filtersBtnRef = useRef<HTMLButtonElement>(null);
   const filtersPanelRef = useRef<HTMLDivElement>(null);
 
+  const { currency, setCurrency } = useCurrency();
+
   useEffect(() => {
     if (!showFilters) return;
 
@@ -186,7 +189,14 @@ export function ChatHeader({
         {/* Main Actions Area */}
         <div className="flex-1 flex items-center justify-end gap-2">
           {/* Currency Dropdown for Issue 707 */}
-          <select className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300 px-3 py-2 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all outline-none">
+          <select
+            value={currency}
+            onChange={(e) =>
+              setCurrency(e.target.value as "USD" | "EUR" | "GBP" | "INR")
+            }
+            aria-label="Currency"
+            className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300 px-3 py-2 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all outline-none"
+          >
             <option value="USD">USD ($)</option>
             <option value="EUR">EUR (€)</option>
             <option value="GBP">GBP (£)</option>
