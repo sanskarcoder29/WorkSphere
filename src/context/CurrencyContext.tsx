@@ -14,14 +14,18 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(
 );
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  // Default to USD
   const [currency, setCurrencyState] = useState<Currency>("USD");
 
-  // Optional: Load from local storage so it remembers if the user refreshes
   useEffect(() => {
-    const saved = localStorage.getItem("workspace-currency") as Currency;
-    if (saved) {
-      setCurrencyState(saved);
+    const saved = localStorage.getItem("workspace-currency");
+    // Only accept valid currency strings to prevent crashes
+    if (
+      saved === "USD" ||
+      saved === "EUR" ||
+      saved === "GBP" ||
+      saved === "INR"
+    ) {
+      setCurrencyState(saved as Currency);
     }
   }, []);
 
