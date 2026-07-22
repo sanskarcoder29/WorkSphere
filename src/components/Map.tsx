@@ -1084,7 +1084,11 @@ const Map = ({
 
           <LayersControl.Overlay checked name="GPU WebGL Heatmap (60 FPS)">
             <LayerGroup>
-              <WebGLHeatmapLayer points={webglTelemetryPoints} opacity={0.85} blur={1.0} />
+              <WebGLHeatmapLayer
+                points={webglTelemetryPoints}
+                opacity={0.85}
+                blur={1.0}
+              />
             </LayerGroup>
           </LayersControl.Overlay>
 

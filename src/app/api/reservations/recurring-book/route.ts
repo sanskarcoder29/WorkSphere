@@ -36,7 +36,7 @@ function generateDates(
   const limit = endDate ? new Date(endDate + "T00:00:00Z") : null;
   const maxOccurrences = occurrences ?? 52;
 
-  let current = new Date(start);
+  const current = new Date(start);
   let count = 0;
 
   while (count < maxOccurrences) {
@@ -235,7 +235,10 @@ export async function POST(request: NextRequest) {
           ),
         );
       } catch (err) {
-        console.error("[RecurringBookAPI] Failed to create guest records:", err);
+        console.error(
+          "[RecurringBookAPI] Failed to create guest records:",
+          err,
+        );
       }
 
       await eventBus.emit("booking:confirmed", {

@@ -161,7 +161,7 @@ export default function ReservationClient({ venue }: { venue: Venue }) {
     const start = new Date(date + "T00:00:00Z");
     const limit = endDate ? new Date(endDate + "T00:00:00Z") : null;
     const maxOccurrences = occurrences ?? 52;
-    let current = new Date(start);
+    const current = new Date(start);
     let count = 0;
 
     while (count < maxOccurrences) {
