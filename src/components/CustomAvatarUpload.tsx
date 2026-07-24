@@ -9,6 +9,8 @@ import {
   Upload,
 } from "lucide-react";
 import Image from "next/image";
+import { notifyAvatarUpdated } from "@/lib/avatar-events";
+import { normalizeImageOrientation } from "@/lib/exifOrientation";
 
 import { AvatarCropModal } from "@/components/AvatarCropModal";
 import { dispatchAvatarUpdated } from "@/lib/avatar-events";
@@ -50,6 +52,7 @@ export function CustomAvatarUpload() {
   const [cropSource, setCropSource] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -137,7 +140,12 @@ export function CustomAvatarUpload() {
     }
   };
 
-  const handleCroppedUpload = async (croppedFile: File) => {
+    // Parse EXIF orientation tags and normalize image canvas matrix if needed
+    file = await normalizeImageOrientation(file);
+
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
     setError(null);
     setSuccess(null);
     setIsUploading(true);
@@ -176,82 +184,63 @@ export function CustomAvatarUpload() {
     }
   };
 
-  const isBusy = isPreparing || isUploading;
+  const activeAvatarUrl = previewUrl || (user.hasImage ? user.imageUrl : null);
 
   return (
-    <>
-      <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800">
-            {user.hasImage ? (
-              <Image
-                src={user.imageUrl}
-                alt={user.fullName || "User avatar"}
-                width={64}
-                height={64}
-                className="h-full w-full object-cover"
-                unoptimized
-              />
-            ) : (
-              <ImageIcon className="h-6 w-6 text-zinc-400" aria-hidden="true" />
-            )}
-          </div>
+    <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className="w-16 h-16 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+          {activeAvatarUrl ? (
+            <Image
+              src={activeAvatarUrl}
+              alt={user.fullName || "User avatar"}
+              width={64}
+              height={64}
+              className="w-full h-full object-cover"
+              style={{ imageOrientation: "from-image" }}
+              unoptimized
+            />
+          ) : (
+            <ImageIcon className="w-6 h-6 text-zinc-400" />
+          )}
+        </div>
 
-          <div className="flex-1">
-            <h3 className="mb-1 text-lg font-semibold text-zinc-900 dark:text-white">
-              Profile Picture
-            </h3>
-            <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-              Choose an image, adjust the square crop, and upload a polished
-              avatar.
-            </p>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">
+            Profile Picture
+          </h3>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Upload a custom avatar to personalize your profile.
+          </p>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                disabled={isBusy}
-              />
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isBusy}
-                className="inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-              >
-                {isBusy ? (
-                  <>
-                    <Loader2
-                      className="h-4 w-4 animate-spin"
-                      aria-hidden="true"
-                    />
-                    {isPreparing ? "Preparing..." : "Uploading..."}
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" aria-hidden="true" />
-                    Choose Image
-                  </>
-                )}
-              </button>
-
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                JPEG, PNG, WebP, HEIC · max 5MB
-              </span>
-            </div>
-
-            {error && (
-              <p
-                className="mt-3 text-sm text-red-600 dark:text-red-400"
-                role="alert"
-              >
-                {error}
-              </p>
-            )}
-
+          <div className="flex items-center gap-4">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              data-testid="file-input"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              disabled={isUploading}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-sm font-medium rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100 disabled:opacity-50 transition-colors"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  Upload Image
+                </>
+              )}
+            </button>
+            {error && <span className="text-sm text-red-500">{error}</span>}
             {success && (
               <p
                 className="mt-3 flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400"
