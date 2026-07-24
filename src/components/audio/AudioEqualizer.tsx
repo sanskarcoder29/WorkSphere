@@ -18,7 +18,8 @@ export type EqPresetName =
   | "bass-boost"
   | "vocal-enhancer"
   | "treble-boost"
-  | "warm";
+  | "warm"
+  | "custom";
 
 export interface EqPreset {
   label: string;
@@ -54,6 +55,10 @@ export const EQ_PRESETS: Record<EqPresetName, EqPreset> = {
   warm: {
     label: "Warm",
     gains: [3, 2, 1, -1, -2],
+  },
+  custom: {
+    label: "Custom",
+    gains: [0, 0, 0, 0, 0],
   },
 };
 
@@ -148,6 +153,26 @@ export function AudioEqualizer({
     }
   }, []);
 
+  // Load from Local Storage on Mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedPreset = window.localStorage.getItem("webrtc_eq_preset") as EqPresetName;
+      const savedGains = window.localStorage.getItem("webrtc_eq_gains");
+      
+      if (savedPreset && EQ_PRESETS[savedPreset]) {
+        setEqPreset(savedPreset);
+      }
+      
+      if (savedGains) {
+        try {
+          setBandGains(JSON.parse(savedGains));
+        } catch (e) {}
+      } else if (savedPreset && savedPreset !== "custom") {
+        setBandGains(EQ_PRESETS[savedPreset].gains);
+      }
+    }
+  }, []);
+
   // Initialize Audio Context and BiquadFilterNode EQ chain on demand
   const initAudio = useCallback(() => {
     if (audioContextRef.current) return;
@@ -230,9 +255,17 @@ export function AudioEqualizer({
 
   // Handle Real-Time Gain Slider Drag with Smooth Audio Parameter Ramping
   const handleBandGainChange = (index: number, newGain: number) => {
+    setEqPreset("custom");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("webrtc_eq_preset", "custom");
+    }
+
     setBandGains((prev) => {
       const next = [...prev];
       next[index] = newGain;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("webrtc_eq_gains", JSON.stringify(next));
+      }
       return next;
     });
 
@@ -257,21 +290,32 @@ export function AudioEqualizer({
 
   const handleEqPresetChange = (presetName: EqPresetName) => {
     setEqPreset(presetName);
-    const gains = EQ_PRESETS[presetName].gains;
-    setBandGains(gains);
+    
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("webrtc_eq_preset", presetName);
+    }
 
-    if (audioContextRef.current) {
-      const now = audioContextRef.current.currentTime;
-      eqFiltersRef.current.forEach((filter, i) => {
-        if (filter && filter.gain) {
-          const targetGain = gains[i] ?? 0;
-          if (typeof filter.gain.setTargetAtTime === "function") {
-            filter.gain.setTargetAtTime(targetGain, now, 0.015);
-          } else if (typeof filter.gain.setValueAtTime === "function") {
-            filter.gain.setValueAtTime(targetGain, now);
+    if (presetName !== "custom") {
+      const gains = EQ_PRESETS[presetName].gains;
+      setBandGains(gains);
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("webrtc_eq_gains", JSON.stringify(gains));
+      }
+
+      if (audioContextRef.current) {
+        const now = audioContextRef.current.currentTime;
+        eqFiltersRef.current.forEach((filter, i) => {
+          if (filter && filter.gain) {
+            const targetGain = gains[i] ?? 0;
+            if (typeof filter.gain.setTargetAtTime === "function") {
+              filter.gain.setTargetAtTime(targetGain, now, 0.015);
+            } else if (typeof filter.gain.setValueAtTime === "function") {
+              filter.gain.setValueAtTime(targetGain, now);
+            }
           }
-        }
-      });
+        });
+      }
     }
   };
 
